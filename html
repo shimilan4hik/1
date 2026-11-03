@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Комната подростка - 3D</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+        }
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+            max-width: 250px;
+        }
+        #controls h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            border: none;
+            border-radius: 5px;
+            background: #4CAF50;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+        .btn:hover {
+            background: #45a049;
+        }
+        .btn.active {
+            background: #2196F3;
+        }
+        .btn.light-btn {
+            background: #FF9800;
+        }
+        .btn.light-btn:hover {
+            background: #F57C00;
+        }
+        .btn.open-btn {
+            background: #9C27B0;
+        }
+        .btn.open-btn:hover {
+            background: #7B1FA2;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    <div id="controls">
+        <h3>Режим отображения</h3>
+        <button class="btn active" id="btn-all">Все стены</button>
+        <button class="btn" id="btn-back">Только задняя стена</button>
+        <button class="btn" id="btn-floor">Только пол</button>
+        <h3>Управление</h3>
+        <button class="btn light-btn" id="btn-light">Свет</button>
+        <button class="btn open-btn" id="btn-open">Открыть все</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script>
+        // Инициализация сцены
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB);
+
+        const camera = new THREE.PerspectiveCamera(
+            75,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            1000
+        );
+        camera.position.set(20, 20, 20);
+        camera.lookAt(0, 3, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        // Управление камерой
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.minDistance = 5;
+        controls.maxDistance = 60;
+        controls.maxPolarAngle = Math.PI / 2;
+
+        // Освещение
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(10, 20, 10);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.camera.left = -20;
+        directionalLight.shadow.camera.right = 20;
+        directionalLight.shadow.camera.top = 20;
+        directionalLight.shadow.camera.bottom = -20;
+        directionalLight.shadow.mapSize.width = 2048;
+        directionalLight.shadow.mapSize.height = 2048;
+        scene.add(directionalLight);
+
+        const pointLight = new THREE.PointLight(0xfff2cc, 0.6, 20);
+        pointLight.position.set(0, 5, 0);
+        scene.add(pointLight);
+
+        // Материалы
+        const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x707070, roughness: 0.9 });
+        const wallMaterial = new THREE.MeshStandardMaterial({ color: 0x909090, roughness: 0.95 });
+        const ceilingMaterial = new THREE.MeshStandardMaterial({ color: 0xb0b0b0, roughness: 0.95 });
+        const woodMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+        const darkWoodMaterial = new THREE.MeshStandardMaterial({ color: 0x5C3317 });
+        const bedMaterial = new THREE.MeshStandardMaterial({ color: 0x4169E1 });
+        const blanketMaterial = new THREE.MeshStandardMaterial({ color: 0x2c3e78 });
+        const pillowMaterial = new THREE.MeshStandardMaterial({ color: 0xFFFFFF });
+        const computerMaterial = new THREE.MeshStandardMaterial({ color: 0x1a1a1a });
+        const glassMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0x88ccff, 
+            transparent: true, 
+            opacity: 0.25,
+            roughness: 0.1,
+            metalness: 0.1
+        });
+        const rgbMaterial1 = new THREE.MeshStandardMaterial({ color: 0xff00ff, emissive: 0xff00ff, emissiveIntensity: 1 });
+        const rgbMaterial2 = new THREE.MeshStandardMaterial({ color: 0x00ffff, emissive: 0x00ffff, emissiveIntensity: 1 });
+        const rgbMaterial3 = new THREE.MeshStandardMaterial({ color: 0x00ff00, emissive: 0x00ff00, emissiveIntensity: 1 });
+        const gpuMaterial = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, metalness: 0.8, roughness: 0.3 });
+        const motherboardMaterial = new THREE.MeshStandardMaterial({ color: 0x1a4a1a });
+        const screenMaterial = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0x444444, emissiveIntensity: 0.8 });
+        const carpetMaterial = new THREE.MeshStandardMaterial({ color: 0x606060, roughness: 1 });
+        const carpetFiberMaterial = new THREE.MeshStandardMaterial({ color: 0x707070, roughness: 1 });
+        const posterMaterial = new THREE.MeshStandardMaterial({ color: 0xFF69B4 });
+        const metalMaterial = new THREE.MeshStandardMaterial({ color: 0x999999, metalness: 0.7, roughness: 0.3 });
+        const fabricMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
+        const sportsMatMaterial = new THREE.MeshStandardMaterial({ color: 0x2e8b57 });
+        const sportsBarMaterial = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.8 });
+        const sportsRingMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+        const sportsRopeMaterial = new THREE.MeshStandardMaterial({ color: 0xDAA520 });
+        const chairFabricMaterial = new THREE.MeshStandardMaterial({ color: 0x1a1a1a });
+        const chairAccentMaterial = new THREE.MeshStandardMaterial({ color: 0xe63946 });
+        const doorMaterial = new THREE.MeshStandardMaterial({ color: 0x654321 });
+        const doorHandleMaterial = new THREE.MeshStandardMaterial({ color: 0xC0C0C0, metalness: 0.9, roughness: 0.2 });
+
+        // Группы для стен
+        const wallsGroup = new THREE.Group();
+        const backWallGroup = new THREE.Group();
+        const floorGroup = new THREE.Group();
+        const secondFloorGroup = new THREE.Group();
+
+        // Пол первого этажа
+        const floor = new THREE.Mesh(
+            new THREE.BoxGeometry(12, 0.2, 12),
+            floorMaterial
+        );
+        floor.position.y = -0.1;
+        floor.receiveShadow = true;
+        floorGroup.add(floor);
+
+        // Стены первого этажа
+        const wallThickness = 0.2;
+        const wallHeight = 6;
+
+        const backWall = new THREE.Mesh(
+            new THREE.BoxGeometry(12, wallHeight, wallThickness),
+            wallMaterial
+        );
+        backWall.position.set(0, wallHeight / 2, -6);
+        backWall.castShadow = true;
+        backWall.receiveShadow = true;
+        backWallGroup.add(backWall);
+
+        const leftWall = new THREE.Mesh(
+            new THREE.BoxGeometry(wallThickness, wallHeight, 12),
+            wallMaterial
+        );
+        leftWall.position.set(-6, wallHeight / 2, 0);
+        leftWall.castShadow = true;
+        leftWall.receiveShadow = true;
+        wallsGroup.add(leftWall);
+
+        const rightWall = new THREE.Mesh(
+            new THREE.BoxGeometry(wallThickness, wallHeight, 12),
+            wallMaterial
+        );
+        rightWall.position.set(6, wallHeight / 2, 0);
+        rightWall.castShadow = true;
+        rightWall.receiveShadow = true;
+        wallsGroup.add(rightWall);
+
+        // Передняя стена с дверным проемом
+        const frontWallLeft = new THREE.Mesh(
+            new THREE.BoxGeometry(4, wallHeight, wallThickness),
+            wallMaterial
+        );
+        frontWallLeft.position.set(-4, wallHeight / 2, 6);
+        frontWallLeft.castShadow = true;
+        frontWallLeft.receiveShadow = true;
+        wallsGroup.add(frontWallLeft);
+
+        const frontWallRight = new THREE.Mesh(
+            new THREE.BoxGeometry(6, wallHeight, wallThickness),
+            wallMaterial
+        );
+        frontWallRight.position.set(3, wallHeight / 2, 6);
+        frontWallRight.castShadow = true;
+        frontWallRight.receiveShadow = true;
+        wallsGroup.add(frontWallRight);
+
+        const frontWallTop = new THREE.Mesh(
+            new THREE.BoxGeometry(2, 2, wallThickness),
+            wallMaterial
+        );
+        frontWallTop.position.set(-1, 5, 6);
+        frontWallTop.castShadow = true;
+        frontWallTop.receiveShadow = true;
+        wallsGroup.add(frontWallTop);
+
+        // ДВЕРЬ НА ПЕРВЫЙ ЭТАЖ
+        const door1Group = new THREE.Group();
+        door1Group.position.set(-2, 0, 6);
+        scene.add(door1Group);
+
+        const door1 = new THREE.Mesh(
+            new THREE.BoxGeometry(1.8, 4, 0.1),
+            doorMaterial
+        );
+        door1.position.set(0.9, 2, 0);
+        door1.castShadow = true;
+        door1Group.add(door1);
+
+        const door1Handle = new THREE.Mesh(
+            new THREE.SphereGeometry(0.08, 8, 8),
+            doorHandleMaterial
+        );
+        door1Handle.position.set(1.6, 2, 0.08);
+        door1Group.add(door1Handle);
+
+        scene.add(wallsGroup);
+        scene.add(backWallGroup);
+        scene.add(floorGroup);
+
+        // ВТОРОЙ ЭТАЖ
+        const secondFloorHeight = 6;
+        
+        const secondFloor = new THREE.Mesh(
+            new THREE.BoxGeometry(12, 0.2, 6),
+            floorMaterial
+        );
+        secondFloor.position.set(0, secondFloorHeight, -3);
+        secondFloor.receiveShadow = true;
+        secondFloor.castShadow = true;
+        secondFloorGroup.add(secondFloor);
+
+        const secondCeiling = new THREE.Mesh(
+            new THREE.BoxGeometry(12, 0.2, 6),
+            ceilingMaterial
+        );
+        secondCeiling.position.set(0, secondFloorHeight + 6, -3);
+        secondCeiling.receiveShadow = true;
+        secondFloorGroup.add(secondCeiling);
+
+        const secondBackWall = new THREE.Mesh(
+            new THREE.BoxGeometry(12, wallHeight, wallThickness),
+            wallMaterial
+        );
+        secondBackWall.position.set(0, secondFloorHeight + wallHeight / 2, -6);
+        secondBackWall.castShadow = true;
+        secondBackWall.receiveShadow = true;
+        secondFloorGroup.add(secondBackWall);
+
+        const secondLeftWall = new THREE.Mesh(
+            new THREE.BoxGeometry(wallThickness, wallHeight, 6),
+            wallMaterial
+        );
+        secondLeftWall.position.set(-6, secondFloorHeight + wallHeight / 2, -3);
+        secondLeftWall.castShadow = true;
+        secondLeftWall.receiveShadow = true;
+        secondFloorGroup.add(secondLeftWall);
+
+        const secondRightWall = new THREE.Mesh(
+            new THREE.BoxGeometry(wallThickness, wallHeight, 6),
+            wallMaterial
+        );
+        secondRightWall.position.set(6, secondFloorHeight + wallHeight / 2, -3);
+        secondRightWall.castShadow = true;
+        secondRightWall.receiveShadow = true;
+        secondFloorGroup.add(secondRightWall);
+
+        // Передняя стена второго этажа с дверным проемом
+        const secondFrontWallLeft = new THREE.Mesh(
+            new THREE.BoxGeometry(4, wallHeight, wallThickness),
+            wallMaterial
+        );
+        secondFrontWallLeft.position.set(-4, secondFloorHeight + wallHeight / 2, 0);
+        secondFrontWallLeft.castShadow = true;
+        secondFrontWallLeft.receiveShadow = true;
+        secondFloorGroup.add(secondFrontWallLeft);
+
+        const secondFrontWallRight = new THREE.Mesh(
+            new THREE.BoxGeometry(6, wallHeight, wallThickness),
+            wallMaterial
+        );
+        secondFrontWallRight.position.set(3, secondFloorHeight + wallHeight / 2, 0);
+        secondFrontWallRight.castShadow = true;
+        secondFrontWallRight.receiveShadow = true;
+        secondFloorGroup.add(secondFrontWallRight);
+
+        const secondFrontWallTop = new THREE.Mesh(
+            new THREE.BoxGeometry(2, 2, wallThickness),
+            wallMaterial
+        );
+        secondFrontWallTop.position.set(-1, secondFloorHeight + 5, 0);
+        secondFrontWallTop.castShadow = true;
+        secondFrontWallTop.receiveShadow = true;
+        secondFloorGroup.add(secondFrontWallTop);
+
+        // ДВЕРЬ НА ВТОРОЙ ЭТАЖ
+        const door2Group = new THREE.Group();
+        door2Group.position.set(-2, secondFloorHeight, 0);
+        secondFloorGroup.add(door2Group);
+
+        const door2 = new THREE.Mesh(
+            new THREE.BoxGeometry(1.8, 4, 0.1),
+            doorMaterial
+        );
+        door2.position.set(0.9, 2, 0);
+        door2.castShadow = true;
+        door2Group.add(door2);
+
+        const door2Handle = new THREE.Mesh(
+            new THREE.SphereGeometry(0.08, 8, 8),
+            doorHandleMaterial
+        );
+        door2Handle.position.set(1.6, 2, 0.08);
+        door2Group.add(door2Handle);
+
+        // Перила второго этажа
+        const railing = new THREE.Mesh(
+            new THREE.BoxGeometry(12, 0.05, 0.05),
+            metalMaterial
+        );
+        railing.position.set(0, secondFloorHeight + 1, 0);
+        secondFloorGroup.add(railing);
+
+        for (let i = 0; i < 10; i++) {
+            const post = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.03, 0.03, 1, 8),
+                metalMaterial
+            );
+            post.position.set(-5.5 + i * 1.2, secondFloorHeight + 0.5, 0);
+            secondFloorGroup.add(post);
+        }
+
+        // Лестница
+        const stairWidth = 1.5;
+        const stairDepth = 0.4;
+        const stairHeight = 0.4;
+        const numStairs = 15;
+
+        for (let i = 0; i < numStairs; i++) {
+            const stair = new THREE.Mesh(
+                new THREE.BoxGeometry(stairWidth, stairHeight, stairDepth),
+                woodMaterial
+            );
+            stair.position.set(5, i * stairHeight + stairHeight / 2, 5 - i * stairDepth);
+            stair.castShadow = true;
+            stair.receiveShadow = true;
+            secondFloorGroup.add(stair);
+        }
+
+        const stairRailing = new THREE.Mesh(
+            new THREE.BoxGeometry(0.05, 1, numStairs * stairDepth),
+            metalMaterial
+        );
+        stairRailing.position.set(5.8, secondFloorHeight / 2, 5 - (numStairs * stairDepth) / 2);
+        stairRailing.rotation.x = Math.atan2(secondFloorHeight, numStairs * stairDepth);
+        secondFloorGroup.add(stairRailing);
+
+        // ШКАФЫ-КУПЕ НА ВТОРОМ ЭТАЖЕ (с анимацией открытия)
+        const wardrobes = [];
+
+        // Шкаф 1
+        const wardrobe1 = new THREE.Mesh(
+            new THREE.BoxGeometry(3, 4, 1.5),
+            darkWoodMaterial
+        );
+        wardrobe1.position.set(-3, secondFloorHeight + 2, -5);
+        wardrobe1.castShadow = true;
+        secondFloorGroup.add(wardrobe1);
+
+        const wardrobe1Door1 = new THREE.Mesh(
+            new THREE.BoxGeometry(1.45, 3.8, 0.05),
+            woodMaterial
+        );
+        wardrobe1Door1.position.set(-3.75, secondFloorHeight + 2, -4.28);
+        secondFloorGroup.add(wardrobe1Door1);
+
+        const wardrobe1Door2 = new THREE.Mesh(
+            new THREE.BoxGeometry(1.45, 3.8, 0.05),
+            woodMaterial
+        );
+        wardrobe1Door2.position.set(-2.25, secondFloorHeight + 2, -4.28);
+        secondFloorGroup.add(wardrobe1Door2);
+
+        const wardrobe1Handle1 = new THREE.Mesh(
+            new THREE.BoxGeometry(0.05, 0.3, 0.05),
+            metalMaterial
+        );
+        wardrobe1Handle1.position.set(-3.05, secondFloorHeight + 2, -4.23);
+        secondFloorGroup.add(wardrobe1Handle1);
+
+        const wardrobe1Handle2 = new THREE.Mesh(
+            new THREE.BoxGeometry(0.05, 0.3, 0.05),
+            metalMaterial
+        );
+        wardrobe1Handle2.position.set(-2.95, secondFloorHeight + 2, -4.23);
+        secondFloorGroup.add(wardrobe1Handle2);
+
+        wardrobes.push({
+            door1: wardrobe1Door1,
+            door2: wardrobe1Door2,
+            originalPos1: -3.75,
+            originalPos2: -2.25,
+            openPos1: -5.2,
+            openPos2: -0.8
+        });
+
+        // Шкаф 2
+        const wardrobe2 = new THREE.Mesh(
+            new THREE.BoxGeometry(3, 4, 1.5),
+            darkWoodMaterial
+        );
+        wardrobe2.position.set(3, secondFloorHeight + 2, -5);
+        wardrobe2.castShadow = true;
+        secondFloorGroup.add(wardrobe2);
+
+        const wardrobe2Door1 = new THREE.Mesh(
+            new THREE.BoxGeometry(1.45, 3.8, 0.05),
+            woodMaterial
+        );
+        wardrobe2Door1.position.set(2.25, secondFloorHeight + 2, -4.28);
+        secondFloorGroup.add(wardrobe2Door1);
+
+        const wardrobe2Door2 = new THREE.Mesh(
+            new THREE.BoxGeometry(1.45, 3.8, 0.05),
+            woodMaterial
+        );
+        wardrobe2Door2.position.set(3.75, secondFloorHeight + 2, -4.28);
+        secondFloorGroup.add(wardrobe2Door2);
+
+        const wardrobe2Handle1 = new THREE.Mesh(
+            new THREE.BoxGeometry(0.05, 0.3, 0.05),
+            metalMaterial
+        );
+        wardrobe2Handle1.position.set(2.95, secondFloorHeight + 2, -4.23);
+        secondFloorGroup.add(wardrobe2Handle1);
+
+        const wardrobe2Handle2 = new THREE.Mesh(
+            new THREE.BoxGeometry(0.05, 0.3, 0.05),
+            metalMaterial
+        );
+        wardrobe2Handle2.position.set(3.05, secondFloorHeight + 2, -4.23);
+        secondFloorGroup.add(wardrobe2Handle2);
+
+        wardrobes.push({
+            door1: wardrobe2Door1,
+            door2: wardrobe2Door2,
+            originalPos1: 2.25,
+            originalPos2: 3.75,
+            openPos1: 0.8,
+            openPos2: 5.2
+        });
+
+        // Шкаф 3 (посередине)
+        const wardrobe3 = new THREE.Mesh(
+            new THREE.BoxGeometry(2, 4, 1.5),
+            darkWoodMaterial
+        );
+        wardrobe3.position.set(0, secondFloorHeight + 2, -5);
+        wardrobe3.castShadow = true;
+        secondFloorGroup.add(wardrobe3);
+
+        const wardrobe3Door = new THREE.Mesh(
+            new THREE.BoxGeometry(1.9, 3.8, 0.05),
+            woodMaterial
+        );
+        wardrobe3Door.position.set(0, secondFloorHeight + 2, -4.28);
+        secondFloorGroup.add(wardrobe3Door);
+
+        const wardrobe3Handle = new THREE.Mesh(
+            new THREE.BoxGeometry(0.05, 0.3, 0.05),
+            metalMaterial
+        );
+        wardrobe3Handle.position.set(0, secondFloorHeight + 2, -4.23);
+        secondFloorGroup.add(wardrobe3Handle);
+
+        wardrobes.push({
+            door1: wardrobe3Door,
+            door2: null,
+            originalPos1: 0,
+            originalPos2: null,
+            openPos1: -2,
+            openPos2: null
+        });
+
+        const secondFloorLight = new THREE.PointLight(0xfff2cc, 0.8, 15);
+        secondFloorLight.position.set(0, secondFloorHeight + 5, -3);
+        secondFloorGroup.add(secondFloorLight);
+
+        scene.add(secondFloorGroup);
+
+        // КРОВАТЬ В УГЛУ
+        const bedBase = new THREE.Mesh(
+            new THREE.BoxGeometry(3, 0.5, 5),
+            woodMaterial
+        );
+        bedBase.position.set(-4.3, 0.25, -3.3);
+        bedBase.castShadow = true;
+        scene.add(bedBase);
+
+        const headboard = new THREE.Mesh(
+            new THREE.BoxGeometry(3, 1.5, 0.2),
+            darkWoodMaterial
+        );
+        headboard.position.set(-4.3, 1, -5.7);
+        headboard.castShadow = true;
+        scene.add(headboard);
+
+        const bedSide = new THREE.Mesh(
+            new THREE.BoxGeometry(0.2, 1, 5),
+            darkWoodMaterial
+        );
+        bedSide.position.set(-5.7, 0.75, -3.3);
+        bedSide.castShadow = true;
+        scene.add(bedSide);
+
+        const mattress = new THREE.Mesh(
+            new THREE.BoxGeometry(2.8, 0.3, 4.8),
+            bedMaterial
+        );
+        mattress.position.set(-4.3, 0.65, -3.3);
+        mattress.castShadow = true;
+        scene.add(mattress);
+
+        const blanket = new THREE.Mesh(
+            new THREE.BoxGeometry(2.7, 0.15, 3),
+            blanketMaterial
+        );
+        blanket.position.set(-4.3, 0.85, -2.3);
+        blanket.castShadow = true;
+        scene.add(blanket);
+
+        const pillow = new THREE.Mesh(
+            new THREE.BoxGeometry(1, 0.2, 0.8),
+            pillowMaterial
+        );
+        pillow.position.set(-4.3, 0.9, -5.3);
+        pillow.castShadow = true;
+        scene.add(pillow);
+
+        const pillow2 = new THREE.Mesh(
+            new THREE.BoxGeometry(1, 0.2, 0.8),
+            pillowMaterial
+        );
+        pillow2.position.set(-4.3, 0.9, -4.4);
+        pillow2.castShadow = true;
+        scene.add(pillow2);
+
+        // Прикроватная тумбочка
+        const nightstand = new THREE.Mesh(
+            new THREE.BoxGeometry(1, 1, 1),
+            darkWoodMaterial
+        );
+        nightstand.position.set(-2.3, 0.5, -5.2);
+        nightstand.castShadow = true;
+        scene.add(nightstand);
+
+        // Стол с компьютером
+        const deskTop = new THREE.Mesh(
+            new THREE.BoxGeometry(3, 0.1, 1.5),
+            woodMaterial
+        );
+        deskTop.position.set(3, 1.5, -4);
+        deskTop.castShadow = true;
+        scene.add(deskTop);
+
+        const legGeometry = new THREE.BoxGeometry(0.1, 1.5, 0.1);
+        const leg1 = new THREE.Mesh(legGeometry, woodMaterial);
+        leg1.position.set(1.6, 0.75, -4.6);
+        leg1.castShadow = true;
+        scene.add(leg1);
+
+        const leg2 = new THREE.Mesh(legGeometry, woodMaterial);
+        leg2.position.set(4.4, 0.75, -4.6);
+        leg2.castShadow = true;
+        scene.add(leg2);
+
+        const leg3 = new THREE.Mesh(legGeometry, woodMaterial);
+        leg3.position.set(1.6, 0.75, -3.4);
+        leg3.castShadow = true;
+        scene.add(leg3);
+
+        const leg4 = new THREE.Mesh(legGeometry, woodMaterial);
+        leg4.position.set(4.4, 0.75, -3.4);
+        leg4.castShadow = true;
+        scene.add(leg4);
+
+        // АКВАРИУМНЫЙ КОРПУС ПК
+        const pcCaseGroup = new THREE.Group();
+        pcCaseGroup.position.set(1.9, 1.55, -4.3);
+        scene.add(pcCaseGroup);
+
+        const pcBase = new THREE.Mesh(
+            new THREE.BoxGeometry(0.8, 0.1, 1.2),
+            computerMaterial
+        );
+        pcBase.position.y = 0.05;
+        pcBase.castShadow = true;
+        pcCaseGroup.add(pcBase);
+
+        const pcTop = new THREE.Mesh(
+            new THREE.BoxGeometry(0.8, 0.05, 1.2),
+            computerMaterial
+        );
+        pcTop.position.y = 1.25;
+        pcTop.castShadow = true;
+        pcCaseGroup.add(pcTop);
+
+        const pcFrontGlass = new THREE.Mesh(
+            new THREE.BoxGeometry(0.78, 1.15, 0.03),
+            glassMaterial
+        );
+        pcFrontGlass.position.set(0, 0.68, 0.58);
+        pcCaseGroup.add(pcFrontGlass);
+
+        const pcBackGlass = new THREE.Mesh(
+            new THREE.BoxGeometry(0.78, 1.15, 0.03),
+            glassMaterial
+        );
+        pcBackGlass.position.set(0, 0.68, -0.58);
+        pcCaseGroup.add(pcBackGlass);
+
+        const pcLeftGlass = new THREE.Mesh(
+            new THREE.BoxGeometry(0.03, 1.15, 1.15),
+            glassMaterial
+        );
+        pcLeftGlass.position.set(-0.38, 0.68, 0);
+        pcCaseGroup.add(pcLeftGlass);
+
+        const pcRightGlass = new THREE.Mesh(
+            new THREE.BoxGeometry(0.03, 1.15, 1.15),
+            glassMaterial
+        );
+        pcRightGlass.position.set(0.38, 0.68, 0);
+        pcCaseGroup.add(pcRightGlass);
+
+        const cornerGeo = new THREE.BoxGeometry(0.05, 1.15, 0.05);
+        const corners = [
+            [-0.38, 0.68, 0.58],
+            [0.38, 0.68, 0.58],
+            [-0.38, 0.68, -0.58],
+            [0.38, 0.68, -0.58]
+        ];
+        corners.forEach(pos => {
+            const corner = new THREE.Mesh(cornerGeo, computerMaterial);
+            corner.position.set(pos[0], pos[1], pos[2]);
+            pcCaseGroup.add(corner);
+        });
+
+        const motherboard = new THREE.Mesh(
+            new THREE.BoxGeometry(0.02, 0.9, 0.9),
+            motherboardMaterial
+        );
+        motherboard.position.set(-0.35, 0.68, 0);
+        pcCaseGroup.add(motherboard);
+
+        const gpu = new THREE.Mesh(
+            new THREE.BoxGeometry(0.5, 0.15, 0.7),
+            gpuMaterial
+        );
+        gpu.position.set(-0.05, 0.5, 0);
+        gpu.castShadow = true;
+        pcCaseGroup.add(gpu);
+
+        const gpuRgbStrip = new THREE.Mesh(
+            new THREE.BoxGeometry(0.5, 0.02, 0.02),
+            rgbMaterial1
+        );
+        gpuRgbStrip.position.set(-0.05, 0.58, 0.3);
+        pcCaseGroup.add(gpuRgbStrip);
+
+        const gpuRgbStrip2 = new THREE.Mesh(
+            new THREE.BoxGeometry(0.5, 0.02, 0.02),
+            rgbMaterial2
+        );
+        gpuRgbStrip2.position.set(-0.05, 0.58, -0.3);
+        pcCaseGroup.add(gpuRgbStrip2);
+
+        for (let i = 0; i < 3; i++) {
+            const fan = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.12, 0.12, 0.05, 16),
+                computerMaterial
+            );
+            fan.rotation.z = Math.PI / 2;
+            fan.position.set(0.35, 0.9 - i * 0.3, 0);
+            pcCaseGroup.add(fan);
+
+            const fanRgb = new THREE.Mesh(
+                new THREE.TorusGeometry(0.1, 0.015, 8, 16),
+                [rgbMaterial1, rgbMaterial2, rgbMaterial3][i]
+            );
+            fanRgb.rotation.y = Math.PI / 2;
+            fanRgb.position.set(0.35, 0.9 - i * 0.3, 0);
+            pcCaseGroup.add(fanRgb);
+        }
+
+        for (let i = 0; i < 2; i++) {
+            const ram = new THREE.Mesh(
+                new THREE.BoxGeometry(0.02, 0.4, 0.05),
+                new THREE.MeshStandardMaterial({ color: 0x1a1a1a })
+            );
+            ram.position.set(-0.32, 0.9, -0.2 + i * 0.1);
+            pcCaseGroup.add(ram);
+
+            const ramRgb = new THREE.Mesh(
+                new THREE.BoxGeometry(0.02, 0.05, 0.05),
+                i === 0 ? rgbMaterial1 : rgbMaterial2
+            );
+            ramRgb.position.set(-0.32, 1.1, -0.2 + i * 0.1);
+            pcCaseGroup.add(ramRgb);
+        }
+
+        const psu = new THREE.Mesh(
+            new THREE.BoxGeometry(0.5, 0.2, 0.7),
+            computerMaterial
+        );
+        psu.position.set(0, 0.2, 0);
+        pcCaseGroup.add(psu);
+
+        const pcRgbLight = new THREE.PointLight(0xff00ff, 0.8, 3);
+        pcRgbLight.position.set(1.9, 2.2, -4.3);
+        scene.add(pcRgbLight);
+
+        const pcRgbLight2 = new THREE.PointLight(0x00ffff, 0.6, 3);
+        pcRgbLight2.position.set(2.3, 2.2, -4.3);
+        scene.add(pcRgbLight2);
+
+        // Монитор
+        const monitor = new THREE.Mesh(
+            new THREE.BoxGeometry(1.7, 1, 0.08),
+            computerMaterial
+        );
+        monitor.position.set(3, 2.1, -4.3);
+        monitor.castShadow = true;
+        scene.add(monitor);
+
+        const screen = new THREE.Mesh(
+            new THREE.BoxGeometry(1.6, 0.92, 0.04),
+            screenMaterial
+        );
+        screen.position.set(3, 2.1, -4.27);
+        scene.add(screen);
+
+        const monitorStand = new THREE.Mesh(
+            new THREE.BoxGeometry(0.1, 0.4, 0.1),
+            computerMaterial
+        );
+        monitorStand.position.set(3, 1.75, -4.3);
+        monitorStand.castShadow = true;
+        scene.add(monitorStand);
+
+        const monitorBase = new THREE.Mesh(
+            new THREE.BoxGeometry(0.6, 0.05, 0.4),
+            computerMaterial
+        );
+        monitorBase.position.set(3, 1.55, -4.3);
+        scene.add(monitorBase);
+
+        const keyboard = new THREE.Mesh(
+            new THREE.BoxGeometry(1.1, 0.06, 0.4),
+            computerMaterial
+        );
+        keyboard.position.set(3, 1.58, -3.8);
+        keyboard.castShadow = true;
+        scene.add(keyboard);
+
+        const keyboardRgb = new THREE.Mesh(
+            new THREE.BoxGeometry(1.05, 0.02, 0.35),
+            new THREE.MeshStandardMaterial({ color: 0x4444ff, emissive: 0x4444ff, emissiveIntensity: 0.5 })
+        );
+        keyboardRgb.position.set(3, 1.61, -3.8);
+        scene.add(keyboardRgb);
+
+        const mouse = new THREE.Mesh(
+            new THREE.BoxGeometry(0.15, 0.06, 0.28),
+            computerMaterial
+        );
+        mouse.position.set(4.2, 1.58, -3.8);
+        mouse.castShadow = true;
+        scene.add(mouse);
+
+        const mouseRgb = new THREE.Mesh(
+            new THREE.BoxGeometry(0.1, 0.02, 0.2),
+            rgbMaterial2
+        );
+        mouseRgb.position.set(4.2, 1.62, -3.8);
+        scene.add(mouseRgb);
+
+        const mousePad = new THREE.Mesh(
+            new THREE.BoxGeometry(2.2, 0.02, 0.7),
+            new THREE.MeshStandardMaterial({ color: 0x1a1a1a })
+        );
+        mousePad.position.set(3.3, 1.56, -3.8);
+        scene.add(mousePad);
+
+        // Геймерское кресло
+        const chairGroup = new THREE.Group();
+        chairGroup.position.set(3, 0, -2.5);
+        scene.add(chairGroup);
+
+        const chairBase = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.1, 0.1, 0.15, 16),
+            metalMaterial
+        );
+        chairBase.position.y = 0.15;
+        chairGroup.add(chairBase);
+
+        for (let i = 0; i < 5; i++) {
+            const angle = (i / 5) * Math.PI * 2;
+            const arm = new THREE.Mesh(
+                new THREE.BoxGeometry(0.08, 0.05, 0.5),
+                metalMaterial
+            );
+            arm.position.set(Math.sin(angle) * 0.25, 0.08, Math.cos(angle) * 0.25);
+            arm.rotation.y = angle;
+            chairGroup.add(arm);
+
+            const wheel = new THREE.Mesh(
+                new THREE.SphereGeometry(0.08, 8, 8),
+                fabricMaterial
+            );
+            wheel.position.set(Math.sin(angle) * 0.5, 0.08, Math.cos(angle) * 0.5);
+            chairGroup.add(wheel);
+        }
+
+        const gasLift = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.06, 0.06, 0.7, 12),
+            metalMaterial
+        );
+        gasLift.position.y = 0.55;
+        chairGroup.add(gasLift);
+
+        const seat = new THREE.Mesh(
+            new THREE.BoxGeometry(0.9, 0.15, 0.9),
+            chairFabricMaterial
+        );
+        seat.position.y = 1;
+        seat.castShadow = true;
+        chairGroup.add(seat);
+
+        const seatSideLeft = new THREE.Mesh(
+            new THREE.BoxGeometry(0.1, 0.2, 0.9),
+            chairAccentMaterial
+        );
+        seatSideLeft.position.set(-0.45, 1.05, 0);
+        chairGroup.add(seatSideLeft);
+
+        const seatSideRight = new THREE.Mesh(
+            new THREE.BoxGeometry(0.1, 0.2, 0.9),
+            chairAccentMaterial
+        );
+        seatSideRight.position.set(0.45, 1.05, 0);
+        chairGroup.add(seatSideRight);
+
+        const backrest = new THREE.Mesh(
+            new THREE.BoxGeometry(0.85, 1.4, 0.15),
+            chairFabricMaterial
+        );
+        backrest.position.set(0, 1.8, -0.4);
+        backrest.rotation.x = 0.15;
+        backrest.castShadow = true;
+        chairGroup.add(backrest);
+
+        const backSideLeft = new THREE.Mesh(
+            new THREE.BoxGeometry(0.1, 1.3, 0.18),
+            chairAccentMaterial
+        );
+        backSideLeft.position.set(-0.45, 1.8, -0.4);
+        backSideLeft.rotation.x = 0.15;
+        chairGroup.add(backSideLeft);
+
+        const backSideRight = new THREE.Mesh(
+            new THREE.BoxGeometry(0.1, 1.3, 0.18),
+            chairAccentMaterial
+        );
+        backSideRight.position.set(0.45, 1.8, -0.4);
+        backSideRight.rotation.x = 0.15;
+        chairGroup.add(backSideRight);
+
+        const headrest = new THREE.Mesh(
+            new THREE.BoxGeometry(0.5, 0.25, 0.15),
+            chairAccentMaterial
+        );
+        headrest.position.set(0, 2.55, -0.48);
+        headrest.rotation.x = 0.15;
+        headrest.castShadow = true;
+        chairGroup.add(headrest);
+
+        const armrestLeft = new THREE.Mesh(
+            new THREE.BoxGeometry(0.08, 0.3, 0.08),
+            metalMaterial
+        );
+        armrestLeft.position.set(-0.45, 1.25, 0);
+        chairGroup.add(armrestLeft);
+
+        const armrestPadLeft = new THREE.Mesh(
+            new THREE.BoxGeometry(0.15, 0.05, 0.3),
+            chairFabricMaterial
+        );
+        armrestPadLeft.position.set(-0.45, 1.42, 0);
+        chairGroup.add(armrestPadLeft);
+
+        const armrestRight = new THREE.Mesh(
+            new THREE.BoxGeometry(0.08, 0.3, 0.08),
+            metalMaterial
+        );
+        armrestRight.position.set(0.45, 1.25, 0);
+        chairGroup.add(armrestRight);
+
+        const armrestPadRight = new THREE.Mesh(
+            new THREE.BoxGeometry(0.15, 0.05, 0.3),
+            chairFabricMaterial
+        );
+        armrestPadRight.position.set(0.45, 1.42, 0);
+        chairGroup.add(armrestPadRight);
+
+        // СЕРЫЙ МОХНАТЫЙ КОВЕР
+        const carpetBase = new THREE.Mesh(
+            new THREE.BoxGeometry(4, 0.05, 3),
+            carpetMaterial
+        );
+        carpetBase.position.set(0, 0.025, 0);
+        carpetBase.receiveShadow = true;
+        scene.add(carpetBase);
+
+        const fiberGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.15, 4);
+        for (let i = 0; i < 400; i++) {
+            const fiber = new THREE.Mesh(fiberGeometry, carpetFiberMaterial);
+            const x = -2 + Math.random() * 4;
+            const z = -1.5 + Math.random() * 3;
+            fiber.position.set(x, 0.1, z);
+            fiber.rotation.x = (Math.random() - 0.5) * 0.3;
+            fiber.rotation.z = (Math.random() - 0.5) * 0.3;
+            scene.add(fiber);
+        }
+
+        // СПОРТИВНЫЙ УГОЛОК
+        const wallBarLeft = new THREE.Mesh(
+            new THREE.BoxGeometry(0.1, 4, 0.1),
+            sportsBarMaterial
+        );
+        wallBarLeft.position.set(-5.5, 2, 3);
+        wallBarLeft.castShadow = true;
+        scene.add(wallBarLeft);
+
+        const wallBarRight = new THREE.Mesh(
+            new THREE.BoxGeometry(0.1, 4, 0.1),
+            sportsBarMaterial
+        );
+        wallBarRight.position.set(-4, 2, 3);
+        wallBarRight.castShadow = true;
+        scene.add(wallBarRight);
+
+        for (let i = 0; i < 8; i++) {
+            const bar = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.04, 0.04, 1.5, 8),
+                sportsBarMaterial
+            );
+            bar.rotation.z = Math.PI / 2;
+            bar.position.set(-4.75, 0.5 + i * 0.5, 3);
+            bar.castShadow = true;
+            scene.add(bar);
+        }
+
+        const ring1 = new THREE.Mesh(
+            new THREE.TorusGeometry(0.15, 0.03, 8, 16),
+            sportsRingMaterial
+        );
+        ring1.position.set(-4.5, 3.5, 3.3);
+        ring1.castShadow = true;
+        scene.add(ring1);
+
+        const ring2 = new THREE.Mesh(
+            new THREE.TorusGeometry(0.15, 0.03, 8, 16),
+            sportsRingMaterial
+        );
+        ring2.position.set(-4.5, 3.5, 2.7);
+        ring2.castShadow = true;
+        scene.add(ring2);
+
+        const rope1 = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.02, 0.02, 1, 8),
+            sportsRopeMaterial
+        );
+        rope1.position.set(-4.5, 4, 3.3);
+        scene.add(rope1);
+
+        const rope2 = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.02, 0.02, 1, 8),
+            sportsRopeMaterial
+        );
+        rope2.position.set(-4.5, 4, 2.7);
+        scene.add(rope2);
+
+        const rope = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.05, 0.05, 3.5, 8),
+            sportsRopeMaterial
+        );
+        rope.position.set(-3.5, 2.25, 3.5);
+        rope.castShadow = true;
+        scene.add(rope);
+
+        const sportsMat = new THREE.Mesh(
+            new THREE.BoxGeometry(2, 0.15, 1.5),
+            sportsMatMaterial
+        );
+        sportsMat.position.set(-4.5, 0.075, 4);
+        sportsMat.castShadow = true;
+        sportsMat.receiveShadow = true;
+        scene.add(sportsMat);
+
+        // Постер
+        const poster1 = new THREE.Mesh(
+            new THREE.BoxGeometry(1.5, 2, 0.05),
+            posterMaterial
+        );
+        poster1.position.set(-2, 3, -5.9);
+        poster1.castShadow = true;
+        scene.add(poster1);
+
+        // Переменные для управления
+        let lightOn = true;
+        let wardrobesOpen = false;
+        let animationProgress = 0;
+        let targetProgress = 0;
+
+        // Обработка изменения размера окна
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Кнопки управления стенами
+        document.getElementById('btn-all').addEventListener('click', function() {
+            wallsGroup.visible = true;
+            backWallGroup.visible = true;
+            floorGroup.visible = true;
+            updateButtons(this);
+        });
+
+        document.getElementById('btn-back').addEventListener('click', function() {
+            wallsGroup.visible = false;
+            backWallGroup.visible = true;
+            floorGroup.visible = true;
+            updateButtons(this);
+        });
+
+        document.getElementById('btn-floor').addEventListener('click', function() {
+            wallsGroup.visible = false;
+            backWallGroup.visible = false;
+            floorGroup.visible = true;
+            updateButtons(this);
+        });
+
+        // Кнопка света
+        document.getElementById('btn-light').addEventListener('click', function() {
+            lightOn = !lightOn;
+            if (lightOn) {
+                ambientLight.intensity = 0.6;
+                directionalLight.intensity = 0.8;
+                pointLight.intensity = 0.6;
+                secondFloorLight.intensity = 0.8;
+                this.textContent = 'Свет';
+                this.classList.remove('active');
+            } else {
+                ambientLight.intensity = 0.1;
+                directionalLight.intensity = 0.1;
+                pointLight.intensity = 0.1;
+                secondFloorLight.intensity = 0.1;
+                this.textContent = 'Свет выкл';
+                this.classList.add('active');
+            }
+        });
+
+        // Кнопка открытия шкафов
+        document.getElementById('btn-open').addEventListener('click', function() {
+            wardrobesOpen = !wardrobesOpen;
+            targetProgress = wardrobesOpen ? 1 : 0;
+            if (wardrobesOpen) {
+                this.textContent = 'Закрыть все';
+                this.classList.add('active');
+            } else {
+                this.textContent = 'Открыть все';
+                this.classList.remove('active');
+            }
+        });
+
+        // Открытие/закрытие дверей
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'd' || e.key === 'D' || e.key === 'в' || e.key === 'В') {
+                // Анимация дверей будет здесь
+            }
+        });
+
+        function updateButtons(activeButton) {
+            document.querySelectorAll('.btn').forEach(btn => {
+                if (!btn.classList.contains('light-btn') && !btn.classList.contains('open-btn')) {
+                    btn.classList.remove('active');
+                }
+            });
+            activeButton.classList.add('active');
+        }
+
+        // Анимация
+        let time = 0;
+        function animate() {
+            requestAnimationFrame(animate);
+            time += 0.01;
+            
+            // Анимация RGB подсветки ПК
+            if (lightOn) {
+                const r = Math.sin(time) * 0.5 + 0.5;
+                const g = Math.sin(time + 2) * 0.5 + 0.5;
+                const b = Math.sin(time + 4) * 0.5 + 0.5;
+                
+                pcRgbLight.color.setRGB(r, g, b);
+                pcRgbLight2.color.setRGB(1-r, 1-g, 1-b);
+            }
+
+            // Анимация открытия/закрытия шкафов
+            if (Math.abs(animationProgress - targetProgress) > 0.01) {
+                animationProgress += (targetProgress - animationProgress) * 0.05;
+                
+                wardrobes.forEach(wardrobe => {
+                    const newPos1 = wardrobe.originalPos1 + (wardrobe.openPos1 - wardrobe.originalPos1) * animationProgress;
+                    wardrobe.door1.position.x = newPos1;
+                    
+                    if (wardrobe.door2 && wardrobe.originalPos2 !== null) {
+                        const newPos2 = wardrobe.originalPos2 + (wardrobe.openPos2 - wardrobe.originalPos2) * animationProgress;
+                        wardrobe.door2.position.x = newPos2;
+                    }
+                });
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        animate();
+    </script>
+</body>
+</html>
